@@ -1,0 +1,62 @@
+{
+  "manifestVersion": 4,
+  "id": "com.crop.transparenttriangles",
+  "name": "Crop Transparent Triangles",
+  "version": "1.0.0",
+  "main": "index.html",
+  "host": {
+    "app": "PS",
+    "minVersion": "23.0.0",
+    "data": {
+      "apiVersion": 2
+    }
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "vanilla",
+      "label": {
+        "default": "Crop Transparent Triangles"
+      },
+      "minimumSize": {
+        "width": 230,
+        "height": 120
+      },
+      "maximumSize": {
+        "width": 2000,
+        "height": 2000
+      },
+      "preferredDockedSize": {
+        "width": 230,
+        "height": 160
+      },
+      "preferredFloatingSize": {
+        "width": 300,
+        "height": 160
+      }
+    },
+    {
+      "type": "command",
+      "id": "cropMaxRect",
+      "label": {
+        "default": "Crop Transparent Triangles"
+      }
+    }
+  ],
+  "icons": [
+    {
+      "path": "icons/dark.png",
+      "width": 23,
+      "height": 23,
+      "scale": [1, 2],
+      "theme": ["darkest", "dark", "medium"]
+    },
+    {
+      "path": "icons/light.png",
+      "width": 23,
+      "height": 23,
+      "scale": [1, 2],
+      "theme": ["lightest", "light"]
+    }
+  ]
+}
