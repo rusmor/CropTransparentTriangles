@@ -86,79 +86,58 @@ async function runCrop() {
 
     const THR = alphaThreshold(csize);
 
-    // 3) Row profile: leftmost/rightmost opaque pixel per row
-    const L = new Int32Array(h);
-    const R = new Int32Array(h);
+    // 3) Find the largest all-opaque axis-aligned rectangle (global maximum)
+    // Build a per-row histogram of consecutive opaque pixels and solve
+    // "largest rectangle in histogram" for each row (O(w*h)).
+    const heights = new Int32Array(w);
+
+    let bestArea = 0;
+    let bestL = 0, bestR = 0, bestT = 0, bestB = 0; // L/R/T/B are [inclusive/exclusive) coords
 
     for (let y = 0; y < h; y++) {
       const row = y * w * 4;
-      let l = -1, r = -1;
 
+      // Update histogram heights for this row
       for (let x = 0; x < w; x++) {
-        if (data[row + x * 4 + 3] >= THR) { l = x; break; }
-      }
-      if (l === -1) { L[y] = R[y] = -1; continue; }
-
-      for (let x = w - 1; x >= 0; x--) {
-        if (data[row + x * 4 + 3] >= THR) { r = x; break; }
+        const a = data[row + x * 4 + 3];
+        heights[x] = (a >= THR) ? (heights[x] + 1) : 0;
       }
 
-      L[y] = l;
-      R[y] = r;
+      // Largest rectangle in histogram (stack of indices with increasing heights)
+      const stack = [];
+      for (let i = 0; i <= w; i++) {
+        const curH = (i === w) ? 0 : heights[i];
+
+        while (stack.length && curH < heights[stack[stack.length - 1]]) {
+          const topIdx = stack.pop();
+          const height = heights[topIdx];
+          if (height <= 0) continue;
+
+          const right = i; // exclusive
+          const left = stack.length ? (stack[stack.length - 1] + 1) : 0; // inclusive
+          const widthRect = right - left;
+          const area = height * widthRect;
+
+          if (area > bestArea) {
+            bestArea = area;
+            bestL = left;
+            bestR = right;        // exclusive
+            bestB = y + 1;        // exclusive
+            bestT = bestB - height; // inclusive
+          }
+        }
+
+        stack.push(i);
+      }
     }
 
-    // 4) Find the row with maximum width
-    let y0 = -1, maxW = -1;
-    for (let y = 0; y < h; y++) {
-      if (L[y] >= 0) {
-        const ww = R[y] - L[y];
-        if (ww > maxW) { maxW = ww; y0 = y; }
-      }
-    }
-    if (y0 < 0) {
+    if (bestArea <= 0) {
       try { imageObj.imageData.dispose(); } catch (_) {}
       return;
     }
 
-    // 5) Search for the maximum-area rectangle (for convex shapes after rotate/lens correction)
-    let bestArea = 0;
-    let bestL = L[y0], bestR = R[y0], bestT = y0, bestB = y0;
-
-    // up
-    {
-      let maxL = L[y0], minR = R[y0];
-      for (let y = y0; y >= 0; y--) {
-        if (L[y] < 0) break;
-        maxL = Math.max(maxL, L[y]);
-        minR = Math.min(minR, R[y]);
-        if (maxL >= minR) break;
-
-        const area = (y0 - y + 1) * (minR - maxL);
-        if (area > bestArea) {
-          bestArea = area;
-          bestL = maxL; bestR = minR; bestT = y; bestB = y0;
-        }
-      }
-    }
-
-    // down
-    {
-      let maxL = L[y0], minR = R[y0];
-      for (let y = y0; y < h; y++) {
-        if (L[y] < 0) break;
-        maxL = Math.max(maxL, L[y]);
-        minR = Math.min(minR, R[y]);
-        if (maxL >= minR) break;
-
-        const area = (y - y0 + 1) * (minR - maxL);
-        if (area > bestArea) {
-          bestArea = area;
-          bestL = maxL; bestR = minR; bestT = y0; bestB = y;
-        }
-      }
-    }
-
-    // 6) Convert to document coordinates + apply inward inset
+    // 4) Convert to document coordinates + apply inward inset
+    // Note: bestR/bestB are exclusive, matching width/height math.
     const cropL = Math.min(width,  Math.max(0, offX + bestL + INSET));
     const cropR = Math.min(width,  Math.max(0, offX + bestR - INSET));
     const cropT = Math.min(height, Math.max(0, offY + bestT + INSET));
@@ -168,7 +147,6 @@ async function runCrop() {
       await doc.crop({ left: cropL, top: cropT, right: cropR, bottom: cropB });
     }
 
-    try { imageObj.imageData.dispose(); } catch (_) {}
   }, { commandName: "Crop Max Rectangle" });
 }
 
