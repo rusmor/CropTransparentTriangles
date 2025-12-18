@@ -1,5 +1,7 @@
 # Crop Transparent Triangles
 
+![Demo](assets/demo.gif)
+
 Photoshop UXP plugin that automatically crops transparent edges left after image rotation, perspective transforms, or lens correction.
 
 It removes transparent corners and borders, leaving the largest clean rectangular image area.
