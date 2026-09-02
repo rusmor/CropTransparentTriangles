@@ -147,10 +147,10 @@ async function runCrop() {
 }
 
 // Action playback handler (must be in global scope)
-globalThis.cropMaxRectActionHandler = async function cropMaxRectActionHandler(executionContext, info) {
+async function cropMaxRectActionHandler(executionContext, info) {
   await runCrop();
   return info || {};
-};
+}
 
 // Panel wiring (button)
 function wirePanelButton() {
