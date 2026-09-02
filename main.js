@@ -44,6 +44,7 @@ async function runCrop() {
   const width = Math.round(px(doc.width));
   const height = Math.round(px(doc.height));
 
+  let imageData;
   await core.executeAsModal(async () => {
     // 1) Read layer pixels at native bit depth (this is critical for 16-bit)
     const imageObj = await imaging.getPixels({
@@ -54,29 +55,24 @@ async function runCrop() {
     });
 
     if (!imageObj || !imageObj.imageData) return;
+    imageData = imageObj.imageData;
 
-    const comps = imageObj.imageData.components;     // expected 4 (RGBA)
-    const csize = imageObj.imageData.componentSize;  // 8/16/32
+    const comps = imageData.components;     // expected 4 (RGBA)
+    const csize = imageData.componentSize;  // 8/16/32
 
     // If we got RGB without alpha, the algorithm is meaningless (nothing to “crop by transparency”)
-    if (comps !== 4) {
-      try { imageObj.imageData.dispose(); } catch (_) {}
-      return;
-    }
+    if (comps !== 4) return;
 
     // 2) Fetch data correctly
     // For 16-bit prefer fullRange so alpha is 0..65535
     let data;
     if (csize === 16) {
-      data = await imageObj.imageData.getData({ chunky: true, fullRange: true });
+      data = await imageData.getData({ chunky: true, fullRange: true });
     } else {
-      data = await imageObj.imageData.getData({ chunky: true });
+      data = await imageData.getData({ chunky: true });
     }
 
-    if (!data || !data.length) {
-      try { imageObj.imageData.dispose(); } catch (_) {}
-      return;
-    }
+    if (!data || !data.length) return;
 
     const sb = imageObj.sourceBounds || { left: 0, top: 0, right: width, bottom: height };
     const offX = sb.left || 0;
@@ -131,10 +127,7 @@ async function runCrop() {
       }
     }
 
-    if (bestArea <= 0) {
-      try { imageObj.imageData.dispose(); } catch (_) {}
-      return;
-    }
+    if (bestArea <= 0) return;
 
     // 4) Convert to document coordinates + apply inward inset
     // Note: bestR/bestB are exclusive, matching width/height math.
@@ -147,7 +140,10 @@ async function runCrop() {
       await doc.crop({ left: cropL, top: cropT, right: cropR, bottom: cropB });
     }
 
-  }, { commandName: "Crop Max Rectangle" });
+  }, { commandName: "Crop Max Rectangle" }).finally(() => {
+    if (!imageData) return;
+    try { imageData.dispose(); } catch (_) {}
+  });
 }
 
 // Action playback handler (must be in global scope)
